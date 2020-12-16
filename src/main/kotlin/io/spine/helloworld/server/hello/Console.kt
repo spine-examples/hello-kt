@@ -29,6 +29,7 @@ package io.spine.helloworld.server.hello
 import io.spine.helloworld.hello.command.Print
 import io.spine.helloworld.hello.event.Printed
 import io.spine.server.command.Assign
+import io.spine.server.entity.TransactionalEntity
 import io.spine.server.procman.ProcessManager
 
 /**
@@ -41,14 +42,11 @@ internal class Console : ProcessManager<String, Output, Output.Builder>() {
     fun handle(command: Print): Printed {
         val user = command.username
         val output = command.text
-        with(builder()) {
-            username = command.username
-            addLines(command.text)
-        }
 
-//        update {
-//            it.username = command.username
-//        }
+        update {
+            username = user
+            addLines(output)
+        }
 
         println("[$user] $output")
         return with(Printed.newBuilder()) {
@@ -57,15 +55,28 @@ internal class Console : ProcessManager<String, Output, Output.Builder>() {
             vBuild()
         }
     }
-}
 
-/*
-private fun <E : TransactionalEntity<*, S, B>, S : EntityState, B : ValidatingBuilder<S>>
-        builderOf(entity: E) {
+    /**
+     * Allows to call `update` instead of `with(builder()` in handler methods.
+     *
+     * @apiNote TODO:2020-12-16:alexander.yevsyukov: Try to implement the following extension for
+     * [TransactionalEntity] similarly to how this inline function works.
+     * It is not possible now because even inline functions are now allowed to access protected
+     * methods and `this.builder()` is not accessible.
+     * ```kotlin
+     * inline fun <E : TransactionalEntity<*, S, B>, S : EntityState, B : ValidatingBuilder<S>>
+     *         E.update(block: B.() -> Unit): B {
+     *     val builder = this.builder()
+     *     block.invoke(builder)
+     *     return builder
+     * }
+     * ```
+     * We can brute-force it via Reflection and have a private extension function `E.builderOf()`
+     * somewhere next to `E.update()` above, but it would mean some performance penalty.
+     */
+    private inline fun update(block: Output.Builder.() -> Unit): Output.Builder {
+        val builder = this.builder()
+        block.invoke(builder)
+        return builder
+    }
 }
-
-inline fun <E : TransactionalEntity<*, S, B>, S : EntityState, B : ValidatingBuilder<S>>
-        E.update(block: (builder: B) -> Unit) {
-    with(this.builder(), block)
-}
-*/
